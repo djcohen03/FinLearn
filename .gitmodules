@@ -1,0 +1,3 @@
+[submodule "fincore"]
+	path = fincore
+	url = https://github.com/djcohen03/fincore.git
