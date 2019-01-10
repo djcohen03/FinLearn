@@ -1,3 +1,4 @@
+import time
 import random
 from fincore.format import FeatureData
 from sklearn.model_selection import train_test_split
@@ -47,10 +48,18 @@ class RandomForest(object):
 
     @classmethod
     def load(self):
-        return load('forest.joblib')
+        start = time.time()
+        forest = load('forest.joblib')
+        print "Loaded RandomForest %s in %.2fs" % (forest, time.time() - start)
+        return forest
 
 if __name__ == '__main__':
     forest = RandomForest('SPY')
-    forest.train(n_estimators=100000, max_depth=15)
+    forest.train(n_estimators=10000, max_depth=15)
     print "Score: %s" % forest.score()
     forest.save()
+
+
+    # Later...
+    forest = RandomForest.load()
+    print forest.score()
