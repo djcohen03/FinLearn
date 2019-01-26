@@ -34,7 +34,7 @@ class RandomForest(object):
     def save(self):
         filename = 'forest[%s].joblib' % self.symbol
         dump(self, 'models/%s' % filename)
-        print 'Saved Model as: %s' % filename
+        print 'Cached Model at: models/%s' % filename
 
     @classmethod
     def load(cls, symbol):
@@ -42,7 +42,7 @@ class RandomForest(object):
         try:
             filename = 'forest[%s].joblib' % symbol
             forest = load('models/%s' % filename)
-            print "Loaded RandomForest %s in %.2fs" % (forest, time.time() - start)
+            print "Loaded RandomForest %s from cache in %.2fs" % (forest, time.time() - start)
             return forest
         except IOError:
             print 'No Random Forest Available, Creating New Instance Now...'
