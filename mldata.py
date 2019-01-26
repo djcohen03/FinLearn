@@ -61,17 +61,17 @@ class MLData(object):
         start = time.time()
         try:
             mldata = load('data/%s' % self.filename)
-            print "Loaded MLData %s in %.2fs, copying data into new class..." % (mldata, time.time() - start)
+            print "Loaded MLData %s in %.2fs, using data to construct new class..." % (mldata, time.time() - start)
             # Copy over data from old class to new:
             self.featuredata = mldata.featuredata
             self.inputs = mldata.inputs
             self.outputs = mldata.outputs
             self.siminputs = mldata.siminputs
             self.simoutputs = mldata.simoutputs
-            self.x_train = mldata.x_train
-            self.x_test = mldata.x_test
-            self.y_train = mldata.y_train
-            self.y_test = mldata.y_test
+            self.x_train = getattr(mldata, 'x_train', None)
+            self.x_test = getattr(mldata, 'x_test', None)
+            self.y_train = getattr(mldata, 'y_train', None)
+            self.y_test = getattr(mldata, 'y_test', None)
             self.save()
         except IOError:
             # No previous data was saved, so we will need to do a hard refresh:

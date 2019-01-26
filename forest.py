@@ -15,11 +15,14 @@ class RandomForest(object):
     def train(self, n_estimators=100, max_depth=None):
         '''
         '''
+        start = time.time()
+
         # Shuffle the training/test data:
         self.data.shuffle()
         state = random.randint(1, 1000)
         self.forest = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=state)
         self.forest.fit(self.data.x_train, self.data.y_train)
+        print 'Fitted a %s-Estimator Forest in %.2fs' % (n_estimators, time.time() - start)
         return self
 
     def score(self):
@@ -29,12 +32,12 @@ class RandomForest(object):
         return self.forest.predict(inputs)
 
     def save(self):
-        filename = 'forest[%s].joblib' % symbol
+        filename = 'forest[%s].joblib' % self.symbol
         dump(self, 'models/%s' % filename)
         print 'Saved Model as: %s' % filename
 
     @classmethod
-    def load(self, symbol):
+    def load(cls, symbol):
         start = time.time()
         try:
             filename = 'forest[%s].joblib' % symbol
@@ -47,8 +50,10 @@ class RandomForest(object):
 
 if __name__ == '__main__':
     forest = RandomForest.load('SPY')
-    if not getattr(forest, 'forest'):
-        print 'Training Random Forest'
-        forest.train(n_estimators=10000, max_depth=15)
-        forest.save()
+    forest.train(n_estimators=50000, max_depth=15)
+    forest.save()
+    # if not getattr(forest, 'forest', None):
+    #     print 'Training Random Forest'
+    #     forest.train(n_estimators=5000, max_depth=15)
+    #     forest.save()
     print "Score: %s" % forest.score()
