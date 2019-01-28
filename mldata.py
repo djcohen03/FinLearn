@@ -16,10 +16,12 @@ class MLData(object):
 
     '''
 
-    def __init__(self, symbol):
+    def __init__(self, symbol, getvix=False, simsize=1440):
         ''' Initialize and immediately load the feature data into memory
         '''
         self.symbol = symbol
+        self.getvix = getvix
+        self.simsize = simsize
         self.filename = '%s.joblib' % self.symbol
         self.load()
 
@@ -39,15 +41,14 @@ class MLData(object):
             database, save the result in the data/ subrepository for later
             quick loading
         '''
-        self.featuredata = FeatureData(self.symbol)
+        self.featuredata = FeatureData(self.symbol, getvix=self.getvix)
         self.inputs, self.outputs, self.features = self.featuredata.format()
 
         # Cut off a 3-day sample for simulation testing
-        simsize = 8 * 60 * 3
-        self.siminputs = self.inputs[-simsize:]
-        self.simoutputs = self.outputs[-simsize:]
-        self.inputs = self.inputs[:simsize]
-        self.outputs = self.outputs[:simsize]
+        self.siminputs = self.inputs[-self.simsize:]
+        self.simoutputs = self.outputs[-self.simsize:]
+        self.inputs = self.inputs[:-self.simsize]
+        self.outputs = self.outputs[:-self.simsize]
         self.save()
 
     def save(self):
@@ -61,7 +62,6 @@ class MLData(object):
         start = time.time()
         try:
             mldata = load('data/%s' % self.filename)
-            print "Loaded MLData %s in %.2fs, using data to construct new class..." % (mldata, time.time() - start)
             # Copy over data from old class to new:
             self.featuredata = mldata.featuredata
             self.inputs = mldata.inputs
@@ -73,6 +73,7 @@ class MLData(object):
             self.y_train = getattr(mldata, 'y_train', None)
             self.y_test = getattr(mldata, 'y_test', None)
             self.save()
+            print "Loaded MLData %s in %.2fs, used data to construct new class" % (mldata, time.time() - start)
         except IOError:
             # No previous data was saved, so we will need to do a hard refresh:
             self.refresh()
