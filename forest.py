@@ -1,8 +1,9 @@
 import time
 import random
 from mldata import MLData
-from sklearn.ensemble import RandomForestRegressor
 from simulate import Simulate
+from sklearn.ensemble import RandomForestRegressor
+from joblib import dump, load
 
 class RandomForest(object):
     def __init__(self, symbol, getvix=False, simsize=1440):
@@ -11,7 +12,7 @@ class RandomForest(object):
         self.symbol = symbol
         self.data = MLData(symbol, getvix=getvix, simsize=simsize)
 
-    def train(self, n_estimators=100, max_depth=None):
+    def train(self, n_estimators=100, max_depth=15):
         '''
         '''
         print 'Training %s-Estimator Random Forest...' % n_estimators
@@ -36,9 +37,22 @@ class RandomForest(object):
         '''
         Simulate.run(self, percentile=percentile)
 
+    def save(self):
+        ''' Save the current class data to a local file in the data/ subrepository
+        '''
+        dump(self, '.cache/forest.joblib')
+
+    @classmethod
+    def load(cls):
+        ''' Save the current class data to a local file in the data/ subrepository
+        '''
+        return load('.cache/forest.joblib')
+
+
 if __name__ == '__main__':
-    forest = RandomForest.load('SPY')
-    # forest = RandomForest('SPY', getvix=False, simsize=15000)
-    # forest.train(n_estimators=1000, max_depth=15)
+    #
+    forest = RandomForest('SPY', getvix=False, simsize=5000)
+    forest.train(n_estimators=50, max_depth=50)
     print "Score: %s" % forest.score()
+    # forest.save()
     forest.simulate()
