@@ -1,6 +1,7 @@
 import time
 import random
 from mldata import MLData
+from simulate import Simulate
 from sklearn.neighbors import KNeighborsRegressor
 from joblib import dump, load
 
@@ -31,6 +32,11 @@ class KNeighbors(object):
         filename = 'neighbors[%s].joblib' % self.symbol
         dump(self, 'models/%s' % filename)
 
+    def simulate(self, percentile=None):
+        ''' Run a small simulation
+        '''
+        Simulate.run(self, percentile=percentile)
+
     @classmethod
     def load(cls, symbol):
         try:
@@ -45,7 +51,8 @@ class KNeighbors(object):
 
 
 if __name__ == '__main__':
-    model = KNeighbors.load('SPY')
+    model = KNeighbors('SPY')
+    model.data.reshape(cutoff=0.2)
     model.train(n_neighbors=3)
-    model.save()
+    # model.save()
     print "Score: %s" % model.score()
