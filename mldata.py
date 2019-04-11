@@ -34,13 +34,27 @@ class MLData(object):
         # Reshape the data based on the new self.simsize value:
         self._shape()
 
-    def shuffle(self, test_size=0.25):
-        ''' Shuffle and split training/testing data
+    def shuffle(self, test_size=0.2):
+        ''' Shuffle test/train data, do so by selecting a random index and
+            splicing a contiguous chunk of train data, and designating it as
+            the training data
+            - Note that the test data must be contiguous because adjacent data
+            points contain redundant information, such as the -n minute lag return
         '''
-        state = random.randint(1, 10000)
-        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(self.inputs, self.outputs, random_state=state)
+        # Generate a random partition split index:
+        count = self.inputs.shape[0]
+        teststart = random.randrange(int(count * (1 - test_size)))
+        testend = int(teststart + count * test_size)
+        print 'Partitioning test inputs as %s:%s (out of %s total)...' % (teststart, testend, count)
 
-        print 'Shuffled: %s Train Vectors, %s Test Vectors' % (self.x_train.shape[0], self.x_test.shape[0])
+        # Partition Train Sets:
+        self.x_train = np.append(self.inputs[:teststart], self.inputs[testend:], axis=0)
+        self.y_train = np.append(self.outputs[:teststart], self.outputs[testend:], axis=0)
+        # Partition Test Sets:
+        self.x_test = self.inputs[teststart:testend]
+        self.y_test = self.outputs[teststart:testend]
+
+        print 'Partitioned: %s Training Arrays, %s Testing Arrays' % (self.x_train.shape[0], self.x_test.shape[0])
 
     def refresh(self):
         ''' Reload the Feature data for the given symbol directly from the database
