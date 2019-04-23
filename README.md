@@ -27,6 +27,7 @@ model.simulate()
 
 
 ## MLModel class:
+These properties and methods will be available to the child model class, after it's been initialized it is was initialized above:
 ### Properties:
 - `model.symbol`
 - `model.x_train`
