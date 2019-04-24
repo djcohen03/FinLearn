@@ -11,12 +11,26 @@ class Helpers():
         ''' Compute the upper and lower percentile thresholds for the given data,
             so we can know when to buy when we are running a simulation
         '''
-        print 'Computing %.2f%% Thresholds for %s...' % (percentile, model)
         predictions = model.predict(model.x_train)
-
         upper, lower  = np.percentile(predictions, [percentile, 100. - percentile])
-        print 'Found Lower/Upper Thresholds: %s, %s' % (lower, upper)
+
+        print 'Found Lower/Upper Thresholds: %.5f, %.5f' % (lower, upper)
         return lower, upper
+
+    @classmethod
+    def getmask(cls, model, percentile, inputs):
+        ''' Get an index mask of the model predictions that fall above the given
+            percentile
+        '''
+        if percentile is None:
+            items = len(model.x_test)
+            return np.array(range(items))
+        else:
+            _, upper = cls.thresholds(model, percentile)
+            predictions = model.predict(inputs)
+            return np.where(predictions > upper)
+
+
 
 class MLModel(object):
     ''' Main Parent Class for Machine Learning Model Classes. The user simply
@@ -73,15 +87,38 @@ class MLModel(object):
         ''' Alias for the model class name '''
         return self.__class__.__name__
 
-    def score(self):
-        ''' Compute the R^2 score on the testing data
+    def score(self, percentile=None):
+        ''' Compute the R^2 score on the testing data. You can optionally specify
+            a percentile cutoff to only compute the score one data points that
+            fall above a certain train-data percentile
         '''
-        return self.model.score(self.x_test, self.y_test)
+        # Get a percentile-based mask:
+        mask = Helpers.getmask(self, percentile, self.x_test)
+        return self.model.score(self.x_test[mask], self.y_test[mask])
 
     def trainscore(self):
         ''' Compute the R^2 score on the training data
         '''
         return self.model.score(self.x_train, self.y_train)
+
+    def accuracy(self, percentile=None, test=True):
+        ''' Determine the mean accuracy of the test or train data when the model
+            predicts above a certain percentile
+        '''
+        # Get the input/output data for assessing:
+        inputs = self.x_test if test else self.x_train
+        outputs = self.y_test if test else self.y_train
+
+        # Find the inputs that show the strongest percentile of predictions:
+        mask = Helpers.getmask(self, percentile, inputs)
+        predictions = self.predict(inputs[mask])
+
+        # Now we compare all instances where our model predicted a positive return
+        # with the number of observed instances that had a positive return, to
+        # determine the accuracy
+        predictionbool = predictions > 0
+        outputbool = outputs[mask] > 0
+        return sum(predictionbool == outputbool) / float(len(predictionbool))
 
     def compare(self):
         ''' Print a comparison of the training R^2 score and the test R^2 score
@@ -101,9 +138,9 @@ class MLModel(object):
         ''' Force a hard reload the Feature data for this class
         '''
         # Load Feature Data:
-        self._data = FeatureData(self.symbol, getvix=self._getvix)
+        data = FeatureData(self.symbol, getvix=self._getvix)
         # Split Data into
-        self._inputs, self._outputs, self.features = self._data.format()
+        self._inputs, self._outputs, self.features = data.format()
         self.shuffle()
 
     def reshape(self, train=0.6):
@@ -138,7 +175,7 @@ class MLModel(object):
     def save(self):
         ''' Save the current class data to a local file in the .cache/ subrepository
         '''
-        dump(self, '.cache/%s.%s.joblib' % self.classname.lower(), self.symbol)
+        dump(self, '.cache/%s.%s.joblib' % (self.classname.lower(), self.symbol))
 
     def simulate(self, percentile=None, sell=True, test=True):
         ''' Simulate the Models' Performances throughout time with the 'siminputs'
@@ -195,6 +232,6 @@ class MLModel(object):
         ''' Save the current class data to a local file in the .cache/ subrepository
         '''
         try:
-            return load('.cache/%s.%s.joblib' % cls.__name__.lower(), symbol)
+            return load('.cache/%s.%s.joblib' % (cls.__name__.lower(), symbol))
         except IOError:
             return cls(symbol, **kwargs)
