@@ -101,6 +101,13 @@ class MLModel(object):
         '''
         return self.model.score(self.x_train, self.y_train)
 
+    def ttest(self, percentile=None, test=True):
+        ''' Perform a t-test to determine if this model can predict market gains
+            more often than the sample mean
+        '''
+        # todo...
+        pass
+
     def accuracy(self, percentile=None, test=True):
         ''' Determine the mean accuracy of the test or train data when the model
             predicts above a certain percentile
