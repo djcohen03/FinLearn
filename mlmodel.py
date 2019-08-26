@@ -107,15 +107,15 @@ class MLModel(object):
         # todo...
         pass
 
-    def accuracy(forest):
+    def accuracy(self):
         ''' Give an assessment of the accuracy
         '''
         # Plot Train Prediction Accuracy:
         plt.figure(1)
         plt.subplot(211)
-        predictions = forest.predict(forest.x_train)
-        diff = forest.y_train - predictions
-        plt.hist(diff.tolist()[0], 100, normed=True, range=(-0.4, 0.4), color=(1, 0, 0, 0.5))
+        predictions = self.predict(self.x_train)
+        diff = self.y_train - predictions
+        plt.hist(diff.tolist(), 100, normed=True, range=(-0.4, 0.4), color=(1, 0, 0, 0.5))
         plt.axvline(x=0, color='black', lw=1)
         plt.axvline(x=diff.mean(), color='black', lw=2)
         plt.title('Training Error: mu=%.3f, sigma=%.3f' % (
@@ -125,9 +125,9 @@ class MLModel(object):
 
         # Plot Test Prediction Acurracy:
         plt.subplot(212)
-        predictions = forest.predict(forest.x_test)
-        diff = forest.y_test - predictions
-        plt.hist(diff.tolist()[0], 100, normed=True, range=(-0.4, 0.4), color=(0, 0, 1, 0.5))
+        predictions = self.predict(self.x_test)
+        diff = self.y_test - predictions
+        plt.hist(diff.tolist(), 100, normed=True, range=(-0.4, 0.4), color=(0, 0, 1, 0.5))
         plt.axvline(x=0, color='black', lw=1)
         plt.axvline(x=diff.mean(), color='black', lw=2)
         plt.title('Test Error: mu=%.3f, sigma=%.3f' % (
