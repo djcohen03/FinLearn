@@ -2,7 +2,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 from joblib import dump, load
-from fincore.format import FeatureData
+from fincore.xydata import XYData
 
 
 class Helpers():
@@ -71,7 +71,6 @@ class MLModel(object):
         ''' Save the model's symbol and Load in raw feature data
         '''
         self.symbol = symbol
-        self._getvix = getvix
         self._trainsize = train
         # Load feature data:
         self.reload()
@@ -108,24 +107,35 @@ class MLModel(object):
         # todo...
         pass
 
-    def accuracy(self, percentile=None, test=True):
-        ''' Determine the mean accuracy of the test or train data when the model
-            predicts above a certain percentile
+    def accuracy(forest):
+        ''' Give an assessment of the accuracy
         '''
-        # Get the input/output data for assessing:
-        inputs = self.x_test if test else self.x_train
-        outputs = self.y_test if test else self.y_train
+        # Plot Train Prediction Accuracy:
+        plt.figure(1)
+        plt.subplot(211)
+        predictions = forest.predict(forest.x_train)
+        diff = forest.y_train - predictions
+        plt.hist(diff.tolist()[0], 100, normed=True, range=(-0.4, 0.4), color=(1, 0, 0, 0.5))
+        plt.axvline(x=0, color='black', lw=1)
+        plt.axvline(x=diff.mean(), color='black', lw=2)
+        plt.title('Training Error: mu=%.3f, sigma=%.3f' % (
+            diff.mean(),
+            diff.std(),
+        ))
 
-        # Find the inputs that show the strongest percentile of predictions:
-        mask = Helpers.getmask(self, percentile, inputs)
-        predictions = self.predict(inputs[mask])
+        # Plot Test Prediction Acurracy:
+        plt.subplot(212)
+        predictions = forest.predict(forest.x_test)
+        diff = forest.y_test - predictions
+        plt.hist(diff.tolist()[0], 100, normed=True, range=(-0.4, 0.4), color=(0, 0, 1, 0.5))
+        plt.axvline(x=0, color='black', lw=1)
+        plt.axvline(x=diff.mean(), color='black', lw=2)
+        plt.title('Test Error: mu=%.3f, sigma=%.3f' % (
+            diff.mean(),
+            diff.std(),
+        ))
 
-        # Now we compare all instances where our model predicted a positive return
-        # with the number of observed instances that had a positive return, to
-        # determine the accuracy
-        predictionbool = predictions > 0
-        outputbool = outputs[mask] > 0
-        return sum(predictionbool == outputbool) / float(len(predictionbool))
+        plt.show()
 
     def compare(self):
         ''' Print a comparison of the training R^2 score and the test R^2 score
@@ -144,10 +154,7 @@ class MLModel(object):
     def reload(self):
         ''' Force a hard reload the Feature data for this class
         '''
-        # Load Feature Data:
-        data = FeatureData(self.symbol, getvix=self._getvix)
-        # Split Data into
-        self._inputs, self._outputs, self.features = data.format()
+        self.xydata = XYData(self.symbol, lookback=30, forecast=10)
         self.shuffle()
 
     def reshape(self, train=0.6):
@@ -158,25 +165,9 @@ class MLModel(object):
         self.shuffle()
 
     def shuffle(self):
-        ''' Shuffle test/train data, do so by selecting a random index and
-            splicing a contiguous chunk of train data, and designating it as
-            the training data
-            - Note that the test data must be contiguous because adjacent data
-            points contain redundant information, such as the -n minute lag return
+        ''' Shuffle test/train data inputs & outputs
         '''
-        # Get the index of the testing set:
-        count = self._inputs.shape[0]
-        start = random.randrange(int(count * self._trainsize))
-        end = int(start + count * (1. - self._trainsize))
-        print 'Repartitioning test inputs as %s:%s (out of %s total)...' % (start, end, count)
-
-        # Partition Train Sets:
-        self.x_train = np.append(self._inputs[:start], self._inputs[end:], axis=0)
-        self.y_train = np.append(self._outputs[:start], self._outputs[end:], axis=0)
-        # Partition Test Sets:
-        self.x_test = self._inputs[start:end]
-        self.y_test = self._outputs[start:end]
-
+        self.x_train, self.y_train, self.x_test, self.y_test = self.xydata.getsplit(train=self._trainsize)
         print 'Partitioned: %s Training Arrays, %s Testing Arrays' % (self.x_train.shape[0], self.x_test.shape[0])
 
     def save(self):
@@ -184,54 +175,26 @@ class MLModel(object):
         '''
         dump(self, '.cache/%s.%s.joblib' % (self.classname.lower(), self.symbol))
 
-    def simulate(self, percentile=None, sell=True, test=True):
-        ''' Simulate the Models' Performances throughout time with the 'siminputs'
-            and 'simoutputs' datasources from the
-
-            Args:
-                - percentile: using the test data, determine the nth percentile threshold
-                  for executing a trade
-                - sell: boolean, whether or not to allow sell/short orders
-
+    def simulate(self, lower=0.0, upper=0.0, sell=True, test=True):
+        ''' Runs and graphs a model's predictive accuracy over time, based on
+            the realized gains/losses of buying/selling over time
         '''
-        if test:
-            inputs = self.x_test
-            outputs = self.y_test
-        else:
-            inputs = self.x_train
-            outputs = self.y_train
+        # Get the input/output data for assessing:
+        inputs = self.x_test if test else self.x_train
+        outputs = self.y_test if test else self.y_train
 
-        returns = []
-        current = 100.
-        count = len(inputs)
+        # Get predictions & trading signal booleans:
+        predictions = self.predict(inputs)
+        getsignal = lambda v: -1. if v < lower else (1. if v > upper else 0.)
+        signals = np.array(map(getsignal, predictions))
 
-        upper = 0.
-        lower = 0.
-        if percentile:
-            lower, upper = Helpers.thresholds(self, percentile)
+        # Generate a PNL Time series based on the signals and realized changes:
+        results = np.multiply(signals, outputs)
+        pnl = (results / 100. + 1.).cumprod() * 100.
 
-        print 'Processing Backtest Results...'
-        for i in range(count):
-            # Periodically print the progress:
-            if i % 50 == 0:
-                print '%.2f%%' % (float(i) / float(count) * 100.)
-
-            input = inputs[i:(i+1),:]
-            prediction = self.predict(input)
-            observation = outputs[i]
-            if prediction > upper:
-                # We Buy here
-                current *= (1. + observation)
-            elif prediction < lower and sell:
-                # We Sell here
-                current *= (1. - observation)
-            else:
-                # Do nothing
-                pass
-            returns.append(current)
-
-        plt.plot(returns)
-        plt.plot([100] * len(returns))
+        plt.plot(pnl)
+        plt.plot([100] * len(pnl))
+        plt.title('PnL From %s Sample Predictions' % len(predictions))
         plt.show()
 
     @classmethod
