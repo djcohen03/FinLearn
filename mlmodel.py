@@ -137,6 +137,20 @@ class MLModel(object):
 
         plt.show()
 
+    def feature_importances(self, top=20):
+        ''' Creates a bar plot of feature importances
+        '''
+        # Get feature importances:
+        importances = self.model.feature_importances_
+        topvalues = sorted(zip(importances, self.features))[-top:]
+        values, features = zip(*topvalues)
+        index = list(range(top))
+        # Plot feature importances:
+        plt.figure(figsize=(14, 8))
+        plt.barh(index, values, color=(0, 0.7, 0, 0.7))
+        plt.yticks(index, features)
+        plt.show()
+
     def compare(self):
         ''' Print a comparison of the training R^2 score and the test R^2 score
         '''
@@ -155,6 +169,7 @@ class MLModel(object):
         ''' Force a hard reload the Feature data for this class
         '''
         self.xydata = XYData(self.symbol, lookback=30, forecast=10)
+        self.features = self.xydata.features
         self.shuffle()
 
     def reshape(self, train=0.6):
