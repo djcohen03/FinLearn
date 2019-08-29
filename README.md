@@ -1,49 +1,44 @@
 # FinLearn
-This is a `sklearn`-based repository for training machine learning models on financial data.  There are two main components:
-- `fincore/`: This sub-repository initializes, manages, and collects financial market data, based on the alphavantage API
-- `mlmodel.py`: This file contains the `MLModel` class, which can be subclassed to easily train and analyze an `sklearn` regressor model
+`sklearn`-based repository for training machine learning models on a financial data set.
 
 ## Initialization:
-See the `fincore` [documentation](https://github.com/djcohen03/fincore) for initializing and collecting data through the alphavantage API.  
-You will need to have some database available.
+See: [fincore](https://github.com/djcohen03/fincore) for initializing and collecting alphavantage API data.
 
 ## Building a Model
-To build a model, you must first import and inherit the MLModel class, and override the classes `train(...)` method, like so:
+Building a model should be as simple as creating a model class that inherits the `MLModel` mixin, and overwritting the `self.train` method creating a `sklearn` model class and training it with the `x_train` and `y_train` data. This should be as simple as:
+
 ```
+# kneighbors.py
 from mlmodel import MLModel
 from sklearn.neighbors import KNeighborsRegressor
 class KNeighbors(MLModel):
-    def train(self, n_neighbors=3, **kwargs):
-        self.model = KNeighborsRegressor(n_neighbors=n_neighbors, **kwargs)
+    def train(self, n_neighbors=3):
+        self.model = KNeighborsRegressor(n_neighbors=n_neighbors)
         self.model.train(self.x_train, self.y_train)
-```
 
-Once you've initialized your model class you should be ready to build and train a predictive model:
-```
-model = KNeighbors('SPY')
-model.train()
-model.simulate()
+if __name__ == '__main__':
+    model = KNeighbors('SPY')
+    model.train()
+...
 ```
 
 
 ## MLModel class:
-These properties and methods will be available to the child model class, after it's been initialized it is was initialized above:
 ### Properties:
-- `model.symbol`
-- `model.x_train`
-- `model.y_train`
-- `model.x_test`
-- `model.y_test`
-- `model.features`
+- Testing/Training: `x_train`, `y_train`, `x_test`, `y_test`
+- Features: `features`
+- Data: `xydata`
 ### Methods:
-- `model.save()`: Saves model class to local .cache folder
-- `model.score()`: R^2 test score
-- `model.reload()`: Reloads feature data
-- `model.shuffle()`: Shuffles the training/testing data
-- `model.compare()`: Compares score v trainscore
-- `model.trainscore()`: R^2 train score
-- `model.predict(inputs)`: Predicts outputs given some inputs
-- `model.reshape(train)`: Reshapes & reshuffles the train/test data split
-- `model.simulate(percentile=None, sell=True, test=True)`: Runs a trading simulation on the test (or train) data
-### Classmethods:
-- `MLModel.load(symbol, **kwargs)`: Attempts to load model class from local .cache folder
+- `save():` Saves model class to local .cache folder
+- `score():` R^2 test score
+- `reload():` Reloads feature data
+- `shuffle():` Shuffles the training/testing data
+- `predict(inputs):` Predicts outputs given some inputs
+- `reshape(train):` Reshapes & reshuffles the train/test data split
+### Model Analysis:
+- `simulate(lower, upper, test=True):` Simulates buying/selling on test data based on model signal
+![alt text](https://raw.githubusercontent.com/djcohen03/finlearn/master/assets/simulate.png)
+- `plotalpha(lower, upper):` Plots a histogram of buying/selling results based on model signals
+![alt text](https://raw.githubusercontent.com/djcohen03/finlearn/master/assets/plotalpha.png)
+- `feature_importances(top=20):` Plots the 20 most important model features, if the trained model uses the `feature_importances_` convention from `sklearn`
+![alt text](https://raw.githubusercontent.com/djcohen03/finlearn/master/assets/feature_importances.png)
