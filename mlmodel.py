@@ -30,6 +30,13 @@ class Helpers():
             predictions = model.predict(inputs)
             return np.where(predictions > upper)
 
+    @classmethod
+    def ask(cls, question):
+        ''' Prompts the user to answer the given y/n question, returns the response
+        '''
+        prompt = '%s y/N: ' % question
+        response = raw_input(prompt).strip()
+        return response == 'y'
 
 
 class MLModel(object):
@@ -67,13 +74,26 @@ class MLModel(object):
         model.save()
     '''
 
-    def __init__(self, symbol, getvix=False, train=0.75):
+    def __init__(self, symbol, train=0.75):
         ''' Save the model's symbol and Load in raw feature data
         '''
         self.symbol = symbol
         self._trainsize = train
-        # Load feature data:
-        self.reload()
+
+        try:
+            # Check if the user wants to try to load this xydata from the local
+            # .cache folder:
+            usecache = Helpers.ask('Load XYData.%s From Cache?' % self.symbol)
+            if usecache:
+                self.xydata = load('.cache/XYData.%s.joblib' % self.symbol)
+                self.features = self.xydata.features
+                self.shuffle()
+            else:
+                # Raise an exception to jump to the except block:
+                raise Exception
+        except:
+            # Load feature data from scratch:
+            self.reload()
 
     def train(self):
         ''' Should override this method, and set self.model to be the child
@@ -107,34 +127,27 @@ class MLModel(object):
         # todo...
         pass
 
-    def accuracy(self):
-        ''' Give an assessment of the accuracy
+    def plotalpha(self, lower=0., upper=0.):
+        ''' Plots gains/losses accrued from predicting direction based on
+            model prediction signals
         '''
-        # Plot Train Prediction Accuracy:
-        plt.figure(1)
-        plt.subplot(211)
-        predictions = self.predict(self.x_train)
-        diff = self.y_train - predictions
-        plt.hist(diff.tolist(), 100, normed=True, range=(-0.4, 0.4), color=(1, 0, 0, 0.5))
-        plt.axvline(x=0, color='black', lw=1)
-        plt.axvline(x=diff.mean(), color='black', lw=2)
-        plt.title('Training Error: mu=%.3f, sigma=%.3f' % (
-            diff.mean(),
-            diff.std(),
-        ))
-
-        # Plot Test Prediction Acurracy:
-        plt.subplot(212)
+        # Get predictions & trading signal booleans:
         predictions = self.predict(self.x_test)
-        diff = self.y_test - predictions
-        plt.hist(diff.tolist(), 100, normed=True, range=(-0.4, 0.4), color=(0, 0, 1, 0.5))
-        plt.axvline(x=0, color='black', lw=1)
-        plt.axvline(x=diff.mean(), color='black', lw=2)
-        plt.title('Test Error: mu=%.3f, sigma=%.3f' % (
-            diff.mean(),
-            diff.std(),
-        ))
+        getsignal = lambda v: -1. if v < lower else (1. if v > upper else 0.)
+        signals = np.array(map(getsignal, predictions))
 
+        # Generate a PNL Time series based on the signals and realized changes:
+        results = np.multiply(signals, self.y_test)
+        results = results[np.nonzero(results)]
+
+        plt.figure(figsize=(14, 8))
+        plt.hist(results.tolist(), 100, normed=True, range=(-0.4, 0.4), color=(0.4, 0.8, 0, 0.5))
+        plt.axvline(x=0, color='black', lw=1)
+        plt.axvline(x=results.mean(), color='green', lw=2)
+        plt.title('Test Alpha: %.3f%% (Sigma=%.3f%%)' % (
+            results.mean(),
+            results.std(),
+        ))
         plt.show()
 
     def feature_importances(self, top=20):
@@ -168,7 +181,14 @@ class MLModel(object):
     def reload(self):
         ''' Force a hard reload the Feature data for this class
         '''
+        print('Loading XYData From Cache Unsuccessful, Fetching Now...')
         self.xydata = XYData(self.symbol, lookback=30, forecast=10)
+
+        # Maybe save the new data for later use:
+        savedata = Helpers.ask('Save a copy of the XYData Instance For Later Use?')
+        if savedata:
+            dump(self.xydata, '.cache/XYData.%s.joblib' % self.symbol)
+
         self.features = self.xydata.features
         self.shuffle()
 
