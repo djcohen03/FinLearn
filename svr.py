@@ -1,5 +1,6 @@
 from mlmodel import MLModel
 from sklearn.svm import SVR
+from sklearn.preprocessing import StandardScaler
 
 class SVRModel(MLModel):
 
@@ -8,9 +9,17 @@ class SVRModel(MLModel):
         '''
         # Shuffle the training/test data:
         self.shuffle()
+
+        # Fit an instance of the Standard Scaler to our new training data, so that
+        # the features are normalized around zero.  This is hopefully a way to
+        # improve the SV model accuracy:
+        self.transform = StandardScaler().fit(self.x_train).transform
+
         # Create & Train Model:
         self.model = SVR(C=C)
-        self.model.fit(self.x_train, self.y_train)
+        self.model.fit(self.transform(self.x_train), self.y_train)
+
+
 
 
 if __name__ == '__main__':

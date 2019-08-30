@@ -92,6 +92,7 @@ class MLModel(object):
         '''
         self.symbol = symbol
         self._trainsize = train
+        self.transform = lambda x: x
 
         try:
             # Check if the user wants to try to load this xydata from the local
@@ -182,7 +183,9 @@ class MLModel(object):
     def predict(self, inputs):
         ''' Predict the model outputs for the given inputs
         '''
-        return self.model.predict(inputs)
+        # Normalize Inputs With self.transform Before Passing To Model:
+        transformed = self.transform(inputs)
+        return self.model.predict(transformed)
 
     def reload(self):
         ''' Force a hard reload the Feature data for this class
