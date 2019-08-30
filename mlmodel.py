@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import stats
 from joblib import dump, load
 from fincore.xydata import XYData
 
@@ -37,6 +38,18 @@ class Helpers():
         prompt = '%s y/N: ' % question
         response = raw_input(prompt).strip()
         return response == 'y'
+
+    @classmethod
+    def getstats(cls, results):
+        ''' Get's the mean, std, and p-value (based on a two-sided t-test) for
+            the given sample results
+        '''
+        mean = results.mean()
+        std = results.std()
+        count, = results.shape
+        t = np.abs(mean / (std / np.sqrt(count)))
+        p = stats.t.sf(t, count - 1) * 2.
+        return mean, std, p
 
 
 class MLModel(object):
@@ -120,13 +133,6 @@ class MLModel(object):
         '''
         return self.model.score(self.x_train, self.y_train)
 
-    def ttest(self, percentile=None, test=True):
-        ''' Perform a t-test to determine if this model can predict market gains
-            more often than the sample mean
-        '''
-        # todo...
-        pass
-
     def plotalpha(self, lower=0., upper=0.):
         ''' Plots gains/losses accrued from predicting direction based on
             model prediction signals
@@ -140,14 +146,14 @@ class MLModel(object):
         results = np.multiply(signals, self.y_test)
         results = results[np.nonzero(results)]
 
+        # Get some summary stats:
+        mean, std, p = Helpers.getstats(results)
+
         plt.figure(figsize=(14, 8))
         plt.hist(results.tolist(), 100, normed=True, range=(-0.4, 0.4), color=(0.4, 0.8, 0, 0.5))
         plt.axvline(x=0, color='black', lw=1)
         plt.axvline(x=results.mean(), color='green', lw=2)
-        plt.title('Test Alpha: %.3f%% (Sigma=%.3f%%)' % (
-            results.mean(),
-            results.std(),
-        ))
+        plt.title('Mean: %.3f%%, Std: %.3f%%, P-Value: %.5f' % (mean, std, p))
         plt.show()
 
     def feature_importances(self, top=20):

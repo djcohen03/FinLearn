@@ -11,8 +11,6 @@ class KNeighbors(MLModel):
         # Create & Train Model:
         self.model = KNeighborsRegressor(n_neighbors=n_neighbors)
         self.model.fit(self.x_train, self.y_train)
-        # Print out a model summary:
-        self.compare()
 
 
 if __name__ == '__main__':
