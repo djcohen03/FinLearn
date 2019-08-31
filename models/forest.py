@@ -6,8 +6,7 @@ from sklearn.ensemble import RandomForestRegressor
 class RandomForest(MLModel):
 
     def train(self, n_estimators=100, max_depth=15, **kwargs):
-        ''' Train a Random Forest Regression Model with 'n_estimators' trees,
-            each with a max depth given by the 'max_depth' parameter
+        '''
         '''
         print 'Training %s-Estimator Random Forest...' % n_estimators
         start = time.time()

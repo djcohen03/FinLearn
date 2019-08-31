@@ -45,9 +45,10 @@ class Helpers():
             the given sample results
         '''
         mean = results.mean()
+        null = 0. # todo: determine what the null hypothesis mean should be
         std = results.std()
         count, = results.shape
-        t = np.abs(mean / (std / np.sqrt(count)))
+        t = np.abs((mean - null) / (std / np.sqrt(count)))
         p = stats.t.sf(t, count - 1) * 2.
         return mean, std, p
 
@@ -235,8 +236,10 @@ class MLModel(object):
         # Generate a PNL Time series based on the signals and realized changes:
         results = np.multiply(signals, outputs)
         pnl = (results / 100. + 1.).cumprod() * 100.
+        # baseline = (self.y_train / 100. + 1.).cumprod() * 100.
 
         plt.plot(pnl)
+        # plt.plot(baseline)
         plt.plot([100] * len(pnl))
         plt.title('PnL From %s Sample Predictions' % len(predictions))
         plt.show()

@@ -3,5 +3,4 @@
 *.db-journal
 
 # Keep Saved Data and Models In Hidden Subdirectories:
-models
 *.joblib

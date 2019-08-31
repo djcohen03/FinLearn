@@ -37,8 +37,5 @@ if __name__ == '__main__':
 - `reshape(train):` Reshapes & reshuffles the train/test data split
 ### Model Analysis:
 - `simulate(lower, upper, test=True):` Simulates buying/selling on test data based on model signal
-![alt text](https://raw.githubusercontent.com/djcohen03/finlearn/master/assets/simulate.png)
 - `plotalpha(lower, upper):` Plots a histogram of buying/selling results based on model signals
-![alt text](https://raw.githubusercontent.com/djcohen03/finlearn/master/assets/plotalpha.png)
 - `feature_importances(top=20):` Plots the 20 most important model features, if the trained model uses the `feature_importances_` convention from `sklearn`
-![alt text](https://raw.githubusercontent.com/djcohen03/finlearn/master/assets/feature_importances.png)
