@@ -13,7 +13,8 @@ class SVRModel(MLModel):
         # Fit an instance of the Standard Scaler to our new training data, so that
         # the features are normalized around zero.  This is hopefully a way to
         # improve the SV model accuracy:
-        self.transform = StandardScaler().fit(self.x_train).transform
+        scaler = StandardScaler().fit(self.x_train)
+        self.transform = lambda x: scaler.transform(x)
 
         # Create & Train Model:
         self.model = SVR(C=C)

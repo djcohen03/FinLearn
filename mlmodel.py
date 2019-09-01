@@ -161,12 +161,20 @@ class MLModel(object):
     def feature_importances(self, top=20):
         ''' Creates a bar plot of feature importances
         '''
-        # Get feature importances:
-        importances = self.model.feature_importances_
-        topvalues = sorted(zip(importances, self.features))[-top:]
+        try:
+            # Try to use the feature_importances_ array:
+            importances = self.model.feature_importances_
+            topvalues = sorted(zip(importances, self.features))[-top:]
+        except AttributeError:
+            # If there is no feature importan array, try to use the coef_ array:
+            coef = self.model.coef_
+            allvalues = sorted(zip(coef, self.features), key=lambda x: abs(x[0]))
+            topvalues = allvalues[-top:]
+
         values, features = zip(*topvalues)
         index = list(range(top))
-        # Plot feature importances:
+
+        # Plot important features:
         plt.figure(figsize=(14, 8))
         plt.barh(index, values, color=(0, 0.7, 0, 0.7))
         plt.yticks(index, features)
