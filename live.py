@@ -22,12 +22,11 @@ class Helpers(object):
         time.sleep(sleeptime)
 
 class LiveTrader(object):
-    def __init__(self, model, key):
+    def __init__(self, model):
         ''' Class for running live predictions using the AlphaVantage API, and
             the given predictive model
         '''
         self.model = model
-        self._key = key
         self.symbol = model.symbol
         self.lookback = model.xydata.lookback
         self.forecast = model.xydata.forecast
@@ -67,20 +66,21 @@ class LiveTrader(object):
             plt.plot(times, changes)
             plt.savefig('pnl.jpg')
 
-    def start(self):
+    def start(self, buffer=40.):
         ''' Start daemonized trading process
         '''
         while True:
             # Sleep until the next minute:
-            Helpers.sleepminute(buffer=0.5)
+            Helpers.sleepminute(buffer=buffer)
 
             # Load the most recent data point:
             current = self.load()
 
             # Predict price change based on most recent datapoint:
-            inputs = self.model.transform(self.model.current.inputs)
+            inputs = self.model.transform(current.inputs)
             prediction = self.model.predict(inputs)[0]
-            timediff = (datetime.datetime.now() - current.time).total_seconds()
+            adj = 60 * 60
+            timediff = (datetime.datetime.now() - current.time).total_seconds() + adj
             print 'Predicted %.4f (Prediction Warning: Inputs are %.1fs old)' % (prediction, timediff)
 
             # If the prediction is positive, then we buy here:
@@ -101,5 +101,5 @@ if __name__ == '__main__':
     model.train(n_jobs=-1)
 
     # Create a Live trading class instance:
-    trader = LiveTrader(model, API_KEY)
+    trader = LiveTrader(model)
     trader.start()

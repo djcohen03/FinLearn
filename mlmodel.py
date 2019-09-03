@@ -40,12 +40,12 @@ class Helpers():
         return response == 'y'
 
     @classmethod
-    def getstats(cls, results):
+    def getstats(cls, baseline, results):
         ''' Get's the mean, std, and p-value (based on a two-sided t-test) for
             the given sample results
         '''
         mean = results.mean()
-        null = 0. # todo: determine what the null hypothesis mean should be
+        null = baseline.mean()
         std = results.std()
         count, = results.shape
         t = np.abs((mean - null) / (std / np.sqrt(count)))
@@ -146,15 +146,17 @@ class MLModel(object):
 
         # Generate a PNL Time series based on the signals and realized changes:
         results = np.multiply(signals, self.y_test)
-        results = results[np.nonzero(results)]
 
         # Get some summary stats:
-        mean, std, p = Helpers.getstats(results)
+        mean, std, p = Helpers.getstats(self.y_test, results)
+
+        # Prediction Results
+        presults = results[np.nonzero(results)]
 
         plt.figure(figsize=(14, 8))
-        plt.hist(results.tolist(), 100, normed=True, range=(-0.4, 0.4), color=(0.4, 0.8, 0, 0.5))
-        plt.axvline(x=0, color='black', lw=1)
-        plt.axvline(x=results.mean(), color='green', lw=2)
+        plt.hist(presults.tolist(), 100, normed=True, range=(-0.4, 0.4), color=(0.1, 0.1, 0.9, 0.5))
+        plt.axvline(x=0, color='gray', lw=1)
+        plt.axvline(x=mean, color='green', lw=1)
         plt.title('Mean: %.3f%%, Std: %.3f%%, P-Value: %.5f' % (mean, std, p))
         plt.show()
 
@@ -244,11 +246,13 @@ class MLModel(object):
         # Generate a PNL Time series based on the signals and realized changes:
         results = np.multiply(signals, outputs)
         pnl = (results / 100. + 1.).cumprod() * 100.
-        # baseline = (self.y_train / 100. + 1.).cumprod() * 100.
+
+        # Get the baseline pnl, if we had just bought everything:
+        baseline = (outputs / 100. + 1.).cumprod() * 100.
 
         plt.plot(pnl)
-        # plt.plot(baseline)
         plt.plot([100] * len(pnl))
+        plt.plot(baseline, color='gray')
         plt.title('PnL From %s Sample Predictions' % len(predictions))
         plt.show()
 
