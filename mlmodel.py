@@ -44,11 +44,10 @@ class Helpers():
         ''' Get's the mean, std, and p-value (based on a two-sided t-test) for
             the given sample results
         '''
-        mean = results.mean()
-        null = baseline.mean()
+        mean = results.mean() - baseline.mean()
         std = results.std()
         count, = results.shape
-        t = np.abs((mean - null) / (std / np.sqrt(count)))
+        t = np.abs(mean / (std / np.sqrt(count)))
         p = stats.t.sf(t, count - 1) * 2.
         return mean, std, p
 
