@@ -157,7 +157,7 @@ class MLModel(object):
         ''' Plot R^2 As a Function of Model Selectivity
         '''
         # Determine apriori upper/lower cutoffs based on observered training data:
-        lower, upper  = np.percentile(self.datasets.train.outputs, [5., 95.])
+        lower, upper  = np.percentile(self.datasets.train.outputs, [10., 90.])
         cutoffs = np.linspace(lower, upper, num=100)
 
         # Do test dataset model predictions for comparing against observed dataset:
@@ -252,8 +252,8 @@ class MLModel(object):
 
         # Get predictions & trading signal booleans:
         predictions = self.predict(inputs)
-        buys = np.where(predictions > upper)
-        sells = np.where(predictions < lower) if test else np.array([])
+        buys, = np.where(predictions > upper)
+        sells, = np.where(predictions < lower) if test else np.array([])
 
         # Generate a PNL Time series based on the signals and realized changes:
         pnl = (outputs[buys] + 1.).cumprod() * 100.
@@ -261,8 +261,9 @@ class MLModel(object):
         plt.figure(figsize=(14, 8))
         plt.plot(pnl)
         plt.axhline(y=100, color='black')
-        plt.title('PnL From %s Sample Predictions, Selected For Predictions > %.5f (%s Dataset)' % (
+        plt.title('PnL From %s Sample Predictions (Out of %s), Selected For Predictions > %.5f (%s Dataset)' % (
             len(buys),
+            len(predictions),
             upper,
             'Test' if test else 'Train')
         )
