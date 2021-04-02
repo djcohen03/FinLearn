@@ -10,7 +10,7 @@ class KNeighbors(MLModel):
         self.shuffle()
         # Create & Train Model:
         self.model = KNeighborsRegressor(n_neighbors=n_neighbors)
-        self.model.fit(self.x_train, self.y_train)
+        self.model.fit(self.datasets.train.inputs, self.datasets.train.outputs)
 
 
 if __name__ == '__main__':

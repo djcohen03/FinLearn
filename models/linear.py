@@ -11,7 +11,7 @@ class LinearModel(MLModel):
 
         # Create & Train Model:
         self.model = LinearRegression(n_jobs=n_jobs)
-        self.model.fit(self.transform(self.x_train), self.y_train)
+        self.model.fit(self.transform(self.datasets.train.inputs), self.datasets.train.outputs)
 
 class RidgeModel(MLModel):
 
@@ -23,7 +23,7 @@ class RidgeModel(MLModel):
 
         # Create & Train Model:
         self.model = Ridge(alpha=alpha)
-        self.model.fit(self.transform(self.x_train), self.y_train)
+        self.model.fit(self.transform(self.datasets.train.inputs), self.datasets.train.outputs)
 
 
 

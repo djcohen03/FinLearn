@@ -12,7 +12,7 @@ class Helpers():
         ''' Compute the upper and lower percentile thresholds for the given data,
             so we can know when to buy when we are running a simulation
         '''
-        predictions = model.predict(model.x_train)
+        predictions = model.predict(model.datasets.train.inputs)
         upper, lower  = np.percentile(predictions, [percentile, 100. - percentile])
 
         print 'Found Lower/Upper Thresholds: %.5f, %.5f' % (lower, upper)
@@ -24,7 +24,7 @@ class Helpers():
             percentile
         '''
         if percentile is None:
-            items = len(model.x_test)
+            items = len(model.datasets.test.inputs)
             return np.array(range(items))
         else:
             _, upper = cls.thresholds(model, percentile)
@@ -58,8 +58,7 @@ class MLModel(object):
 
         Properties:
             - symbol
-            - x_train, y_train
-            - x_test, y_test
+            - datasets
             - features
         Methods:
             - score: R^2 test score
@@ -79,7 +78,7 @@ class MLModel(object):
         class GreatModel(MLModel):
             def train(self, **kwargs):
                 self.model = GreatModelRegressor(**kwargs)
-                self.model.train(self.x_train, self.y_train)
+                self.model.train(self.datasets.train.inputs, self.datasets.train.outputs)
 
         model = GreatModel('SPY')
         model.train(alpha=0.0, beta=1.0)
@@ -92,28 +91,21 @@ class MLModel(object):
         '''
         self.symbol = symbol
         self._trainsize = train
-        self.transform = lambda x: x
 
-        try:
-            # Check if the user wants to try to load this xydata from the local
-            # .cache folder:
-            usecache = Helpers.ask('Load XYData.%s From Cache?' % self.symbol)
-            if usecache:
-                self.xydata = load('.cache/XYData.%s.joblib' % self.symbol)
-                self.features = self.xydata.features
-                self.shuffle()
-            else:
-                # Raise an exception to jump to the except block:
-                raise Exception
-        except:
-            # Load feature data from scratch:
-            self.reload()
+        # Load Train/Testing Data Sets:
+        self.datasets = XYData(self.symbol, lookback=30, forecast=15)
+        self.features = self.datasets.features
 
     def train(self):
         ''' Should override this method, and set self.model to be the child
             class' machine learning model
         '''
         raise NotImplementedError('Must Override the %s.train method' % self.classname)
+
+    def transform(self, inputs):
+        ''' Optionally override for input transformation grooming
+        '''
+        return inputs
 
     @property
     def classname(self):
@@ -126,28 +118,28 @@ class MLModel(object):
             fall above a certain train-data percentile
         '''
         # Get a percentile-based mask:
-        mask = Helpers.getmask(self, percentile, self.x_test)
-        return self.model.score(self.x_test[mask], self.y_test[mask])
+        mask = Helpers.getmask(self, percentile, self.datasets.test.inputs)
+        return self.model.score(self.datasets.test.inputs[mask], self.datasets.test.outputs[mask])
 
     def trainscore(self):
         ''' Compute the R^2 score on the training data
         '''
-        return self.model.score(self.x_train, self.y_train)
+        return self.model.score(self.datasets.train.inputs, self.datasets.train.outputs)
 
     def plotalpha(self, lower=0., upper=0.):
         ''' Plots gains/losses accrued from predicting direction based on
             model prediction signals
         '''
         # Get predictions & trading signal booleans:
-        predictions = self.predict(self.x_test)
+        predictions = self.predict(self.datasets.test.inputs)
         getsignal = lambda v: -1. if v < lower else (1. if v > upper else 0.)
         signals = np.array(map(getsignal, predictions))
 
         # Generate a PNL Time series based on the signals and realized changes:
-        results = np.multiply(signals, self.y_test)
+        results = np.multiply(signals, self.datasets.test.outputs)
 
         # Get some summary stats:
-        mean, std, p = Helpers.getstats(self.y_test, results)
+        mean, std, p = Helpers.getstats(self.datasets.test.outputs, results)
 
         # Prediction Results
         presults = results[np.nonzero(results)]
@@ -157,6 +149,45 @@ class MLModel(object):
         plt.axvline(x=0, color='gray', lw=1)
         plt.axvline(x=mean, color='green', lw=1)
         plt.title('Mean: %.3f%%, Std: %.3f%%, P-Value: %.5f' % (mean, std, p))
+        plt.show()
+
+    def plotmasks(self):
+        ''' Plot R^2 As a Function of Model Selectivity
+        '''
+        # Determine apriori upper/lower cutoffs based on observered training data:
+        lower, upper  = np.percentile(self.datasets.train.outputs, [5., 95.])
+        cutoffs = np.linspace(lower, upper, num=100)
+
+        # Do test dataset model predictions for comparing against observed dataset:
+        predictions = self.predict(self.datasets.test.inputs)
+        observed = self.datasets.test.outputs
+
+        # Gather Prediction Performances Across Different Selectivity Levels:
+        _values = []
+        _counts = []
+        for cutoff in cutoffs:
+            if cutoff < 0:
+                items = observed[np.where(predictions < cutoff)]
+                value = -items.mean()
+            else:
+                items = observed[np.where(predictions > cutoff)]
+                value = items.mean()
+
+            count = items.size
+            _values.append(value)
+            _counts.append(count)
+
+        # Do some plotting (don't look at the code, just enjoy the nice graph):
+        plt.figure(figsize=(14, 8))
+        plt.plot(cutoffs, _values, color=(0, 0.7, 0, 0.7), linewidth=3, label='Avg. Return')
+        width = cutoffs[1] - cutoffs[0]
+        normalizer = max(_counts) / max(_values)
+        plt.bar(cutoffs, _counts / normalizer, width=width, color=(0, 0, 0.7, 0.2), edgecolor=(0, 0, 0.0, 0.0), label='Freq.')
+        plt.axhline(color='black')
+        plt.ylabel('Avg. Return')
+        plt.xlabel('Model Selectivity')
+        plt.title('Model Permance Relative To Model Selectivity: %s %s' % (self.symbol, self.classname))
+        plt.legend()
         plt.show()
 
     def feature_importances(self, top=20):
@@ -197,20 +228,6 @@ class MLModel(object):
         transformed = self.transform(inputs)
         return self.model.predict(transformed)
 
-    def reload(self):
-        ''' Force a hard reload the Feature data for this class
-        '''
-        print('Loading XYData From Cache Unsuccessful, Fetching Now...')
-        self.xydata = XYData(self.symbol, lookback=30, forecast=10)
-
-        # Maybe save the new data for later use:
-        savedata = Helpers.ask('Save a copy of the XYData Instance For Later Use?')
-        if savedata:
-            dump(self.xydata, '.cache/XYData.%s.joblib' % self.symbol)
-
-        self.features = self.xydata.features
-        self.shuffle()
-
     def reshape(self, train=0.6):
         ''' Reshape the train/test split size, and shuffle the data with new
             partition sizes
@@ -219,10 +236,9 @@ class MLModel(object):
         self.shuffle()
 
     def shuffle(self):
-        ''' Shuffle test/train data inputs & outputs
+        ''' Alias For self.datasets.shuffle()
         '''
-        self.x_train, self.y_train, self.x_test, self.y_test = self.xydata.getsplit(train=self._trainsize)
-        print 'Partitioned: %s Training Arrays, %s Testing Arrays' % (self.x_train.shape[0], self.x_test.shape[0])
+        self.datasets.shuffle(split=self._trainsize)
 
     def save(self):
         ''' Save the current class data to a local file in the .cache/ subrepository
@@ -234,25 +250,25 @@ class MLModel(object):
             the realized gains/losses of buying/selling over time
         '''
         # Get the input/output data for assessing:
-        inputs = self.x_test if test else self.x_train
-        outputs = self.y_test if test else self.y_train
+        inputs = self.datasets.test.inputs if test else self.datasets.train.inputs
+        outputs = self.datasets.test.outputs if test else self.datasets.train.outputs
 
         # Get predictions & trading signal booleans:
         predictions = self.predict(inputs)
-        getsignal = lambda v: -1. if v < lower else (1. if v > upper else 0.)
-        signals = np.array(map(getsignal, predictions))
+        buys = np.where(predictions > upper)
+        sells = np.where(predictions < lower) if test else np.array([])
 
         # Generate a PNL Time series based on the signals and realized changes:
-        results = np.multiply(signals, outputs)
-        pnl = (results / 100. + 1.).cumprod() * 100.
+        pnl = (outputs[buys] + 1.).cumprod() * 100.
 
-        # Get the baseline pnl, if we had just bought everything:
-        baseline = (outputs / 100. + 1.).cumprod() * 100.
-
+        plt.figure(figsize=(14, 8))
         plt.plot(pnl)
-        plt.plot([100] * len(pnl))
-        plt.plot(baseline, color='gray')
-        plt.title('PnL From %s Sample Predictions' % len(predictions))
+        plt.axhline(y=100, color='black')
+        plt.title('PnL From %s Sample Predictions, Selected For Predictions > %.5f (%s Dataset)' % (
+            len(predictions),
+            upper,
+            'Test' if test else 'Train')
+        )
         plt.show()
 
     @classmethod
