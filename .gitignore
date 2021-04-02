@@ -4,3 +4,5 @@
 
 # Keep Saved Data and Models In Hidden Subdirectories:
 *.joblib
+
+dbpaths.py

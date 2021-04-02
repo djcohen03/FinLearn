@@ -1,10 +1,11 @@
+import uuid
 import random
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 from joblib import dump, load
 from fincore.xydata import XYData
-
+from db.models import session, Model
 
 class Helpers():
     @classmethod
@@ -91,6 +92,7 @@ class MLModel(object):
         '''
         self.symbol = symbol
         self._trainsize = train
+        self._modelid = None
 
         # Load Train/Testing Data Sets:
         self.datasets = XYData(self.symbol, lookback=30, forecast=15)
@@ -240,11 +242,6 @@ class MLModel(object):
         '''
         self.datasets.shuffle(split=self._trainsize)
 
-    def save(self):
-        ''' Save the current class data to a local file in the .cache/ subrepository
-        '''
-        dump(self, '.cache/%s.%s.joblib' % (self.classname.lower(), self.symbol))
-
     def simulate(self, lower=0.0, upper=0.0, sell=True, test=True):
         ''' Runs and graphs a model's predictive accuracy over time, based on
             the realized gains/losses of buying/selling over time
@@ -265,17 +262,34 @@ class MLModel(object):
         plt.plot(pnl)
         plt.axhline(y=100, color='black')
         plt.title('PnL From %s Sample Predictions, Selected For Predictions > %.5f (%s Dataset)' % (
-            len(predictions),
+            len(buys),
             upper,
             'Test' if test else 'Train')
         )
         plt.show()
 
-    @classmethod
-    def load(cls, symbol, **kwargs):
+    def save(self, name=None):
         ''' Save the current class data to a local file in the .cache/ subrepository
         '''
-        try:
-            return load('.cache/%s.%s.joblib' % (cls.__name__.lower(), symbol))
-        except IOError:
-            return cls(symbol, **kwargs)
+        if self._modelid:
+            print 'Saving Preexisting Model %s...' % self._modelid
+            item = session.query(Model).get(self._modelid)
+            item.model = self
+            session.commit()
+        else:
+            print 'Saving New ML Database Model Instance...'
+            item = Model(
+                name=name if name else str(uuid.uuid4()),
+                type=self.classname,
+                model=self,
+                symbol=self.symbol
+            )
+            session.add(item)
+            session.commit()
+            self._modelid = item.id
+
+    @classmethod
+    def load(cls, name):
+        ''' Save the current class data to a local file in the .cache/ subrepository
+        '''
+        return session.query(Model).filter_by(name=name).first()

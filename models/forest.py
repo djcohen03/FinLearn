@@ -22,6 +22,6 @@ class RandomForest(MLModel):
 
 if __name__ == '__main__':
     #
-    forest = RandomForest('SPY')
-    forest.train(n_estimators=100, max_depth=15)
+    forest = RandomForest('AAPL')
+    forest.train(n_estimators=5, max_depth=5)
     forest.save()
