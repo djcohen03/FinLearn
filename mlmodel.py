@@ -87,12 +87,13 @@ class MLModel(object):
         model.save()
     '''
 
-    def __init__(self, symbol, train=0.75):
+    def __init__(self, symbol, train=0.75, **kwargs):
         ''' Save the model's symbol and Load in raw feature data
         '''
         self.symbol = symbol
         self._trainsize = train
         self._modelid = None
+        self.kwargs = kwargs
 
         # Load Train/Testing Data Sets:
         self.datasets = XYData(self.symbol, lookback=30, forecast=15)
@@ -293,4 +294,6 @@ class MLModel(object):
     def load(cls, name):
         ''' Save the current class data to a local file in the .cache/ subrepository
         '''
-        return session.query(Model).filter_by(name=name).first()
+        model = session.query(Model).filter_by(name=name).first()
+        if model:
+            return model.model

@@ -1,105 +1,45 @@
-import time
-import datetime
-import requests
-import threading
-import numpy as np
+import sys
+import traceback
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-from matplotlib import style
-
-
-style.use('fivethirtyeight')
-
-class Helpers(object):
-    @classmethod
-    def sleepminute(cls, buffer=0.0):
-        ''' Sleeps program until the start of the next UTC minute
-        '''
-        now = datetime.datetime.utcnow()
-        sleeptime = 60. - (now.second + now.microsecond / 1000000.0) + buffer
-        print 'Sleeping %.2fs...' % sleeptime
-        time.sleep(sleeptime)
+from models import *
+from mlmodel import MLModel
+from fincore.xydata import LiveXYData
 
 class LiveTrader(object):
-    def __init__(self, model):
-        ''' Class for running live predictions using the AlphaVantage API, and
-            the given predictive model
+    def __init__(self, name):
         '''
-        self.model = model
-        self.symbol = model.symbol
-        self.lookback = model.xydata.lookback
-        self.forecast = model.xydata.forecast
-        self.datapoints = []
-
-    def load(self):
-        ''' Loads and saves the most recent price, time, and input vector
         '''
-        # Get live datapoint:
-        datapoint = self.model.xydata.live()
-        self.datapoints.append(datapoint)
-        return datapoint
+        print 'Loading Model %s...' % name
+        self.model = MLModel.load(name)
+        self.symbol = self.model.symbol
+        self.lookback = int(self.model.features[-1].split('.')[-1]) + 1
+        self.client = LiveXYData(self.symbol, self.lookback)
 
-    def plot(self):
-        ''' Updates the self.ax1 plot to display the pnl progression
+        # Keep a record of the predictions
+        self._predictions = {}
+
+    def run(self):
         '''
-        if self.datapoints:
-            # Get the % Changes and times:
-            prices = [item.price for item in self.datapoints]
-            changes = [np.log(price / prices[0]) for price in prices]
-            times = [item.time for item in self.datapoints]
-
-            # Compute PNL Time series based on the buy orders:
-            pnl = [0.] * len(times)
-            for i, datapoint in enumerate(self.datapoints):
-                if datapoint.bought:
-                    purchased = datapoint.price
-                    pnlchange = [
-                        np.log(price / purchased)
-                        for price in
-                        prices[i:(i + self.lookback)]
-                    ]
-                    for k in range():
-                        pass
-
-            # Overwrite pnl.jpg file with new data:
-            plt.plot(times, changes)
-            plt.savefig('pnl.jpg')
-
-    def start(self, buffer=40.):
-        ''' Start daemonized trading process
         '''
-        while True:
-            # Sleep until the next minute:
-            Helpers.sleepminute(buffer=buffer)
+        print 'Starting Live Pricing Predictor...'
+        for livepoint in self.client.livestream():
+            try:
+                # Make and save model prediction:
+                prediction = self.model.predict(livepoint.inputs) * 100.
+                self._predictions[livepoint.timestamp] = {self.symbol: prediction}
+                print self.predictions
+            except:
+                print 'An Exception Occurred While Running Model Predictions:'
+                print traceback.format_exc()
 
-            # Load the most recent data point:
-            current = self.load()
-
-            # Predict price change based on most recent datapoint:
-            inputs = self.model.transform(current.inputs)
-            prediction = self.model.predict(inputs)[0]
-            adj = 60 * 60
-            timediff = (datetime.datetime.now() - current.time).total_seconds() + adj
-            print 'Predicted %.4f (Prediction Warning: Inputs are %.1fs old)' % (prediction, timediff)
-
-            # If the prediction is positive, then we buy here:
-            if prediction > 0.:
-                print 'Buying at %s..' % current.time
-                current.bought = True
-
-            # Save the prediction:
-            current.prediction = prediction
-            # Update the live plot:
-            self.plot()
+    @property
+    def predictions(self):
+        '''
+        '''
+        return pd.DataFrame(self._predictions).T
 
 
 if __name__ == '__main__':
-    # Create & Train a Linear Regression Model:
-    from models import LinearModel
-    model = LinearModel('SPY', train=.99)
-    model.train(n_jobs=-1)
-
-    # Create a Live trading class instance:
-    trader = LiveTrader(model)
-    trader.start()
+    name = '42120d83-0315-4c63-be23-79e87004ad04'
+    service = LiveTrader(name)
+    service.run()
